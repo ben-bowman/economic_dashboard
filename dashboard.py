@@ -48,14 +48,14 @@ def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     
     # Use correct series ID for national unemployment if "All" is selected
     if "00000" in state_codes:
-        series = ["LNS14000000"]  # Correct national unemployment series ID
+    series = ["LNS14000000"]  # Correct national unemployment series ID
     else:
         
     # Use correct series ID for national unemployment if "All" is selected
     if "00000" in state_codes:
-        series = ["LNS14000000"]  # Correct national unemployment series ID
+    series = ["LNS14000000"]  # Correct national unemployment series ID
     else:
-        series = [f"LASST{state_code}0000000000003" for state_code in state_codes]  # Correct state-level ID format
+    series = [f"LASST{state_code}0000000000003" for state_code in state_codes]  # Correct state-level ID format
     
     
 
