@@ -47,7 +47,7 @@ def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     headers = {"Content-Type": "application/json"}
     series = [f"LAU{{state_code}}0000000000003" for state_code in state_codes]
 
-    data = json.dumps({{
+    data = json.dumps({
         "seriesid": series,
         "startyear": str(start_year),
         "endyear": str(end_year),
