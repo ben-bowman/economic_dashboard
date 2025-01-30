@@ -1,19 +1,17 @@
-import os
 import requests
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-from dotenv import load_dotenv
+import json  # ✅ Added missing import
 
-# --- LOAD API KEYS ---
-load_dotenv()  # Load from .env file
-FRED_API_KEY = os.getenv("FRED_API_KEY")
-BLS_API_KEY = os.getenv("BLS_API_KEY")
+# --- LOAD API KEYS FROM SECRETS ---
+FRED_API_KEY = st.secrets["FRED_API_KEY"]
+BLS_API_KEY = st.secrets["BLS_API_KEY"]
 
 # --- FUNCTION TO FETCH GDP, INFLATION FROM FRED ---
 @st.cache_data
 def fetch_fred_data(series_id, start_year=2000, end_year=2024):
-    """Fetches data from FRED API."""
+    """Fetches data from FRED API and handles errors."""
     url = f"https://api.stlouisfed.org/fred/series/observations"
     params = {
         "series_id": series_id,
@@ -22,8 +20,19 @@ def fetch_fred_data(series_id, start_year=2000, end_year=2024):
         "observation_start": f"{start_year}-01-01",
         "observation_end": f"{end_year}-12-31",
     }
+    
     response = requests.get(url, params=params)
+    
+    if response.status_code != 200:
+        st.error(f"❌ Error fetching {series_id} data from FRED API. Status Code: {response.status_code}")
+        return pd.DataFrame()  # Return an empty DataFrame to prevent crashes
+    
     data = response.json()
+
+    if "observations" not in data:
+        st.error(f"❌ 'observations' key missing in API response for {series_id}.")
+        st.json(data)  # Display raw response for debugging
+        return pd.DataFrame()
     
     df = pd.DataFrame(data["observations"])
     df["date"] = pd.to_datetime(df["date"])
@@ -36,7 +45,7 @@ def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     """Fetches state-level unemployment data from BLS API."""
     headers = {"Content-Type": "application/json"}
     series = [f"LAU{state_code}0000000000003" for state_code in state_codes]
-    
+
     data = json.dumps({
         "seriesid": series,
         "startyear": str(start_year),
@@ -45,11 +54,16 @@ def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     })
     
     response = requests.post("https://api.bls.gov/publicAPI/v2/timeseries/data/", headers=headers, data=data)
+    
+    if response.status_code != 200:
+        st.error(f"❌ Error fetching unemployment data from BLS API. Status Code: {response.status_code}")
+        return pd.DataFrame()
+    
     bls_data = response.json()
 
     records = []
-    for series in bls_data["Results"]["series"]:
-        state = series["seriesID"][3:5]  # Extracting state code
+    for series in bls_data.get("Results", {}).get("series", []):
+        state = series["seriesID"][3:5]
         for item in series["data"]:
             records.append({
                 "Year": int(item["year"]),
@@ -68,10 +82,10 @@ st.title("📊 U.S. Economic Dashboard")
 st.markdown("### Real-Time Economic Data from FRED & BLS")
 
 st.subheader("📈 GDP Data (U.S.)")
-st.line_chart(gdp_df.set_index("date")["value"])
+st.line_chart(gdp_df.set_index("date")["value"]) if not gdp_df.empty else st.warning("No GDP data available.")
 
 st.subheader("📉 Inflation Rate (CPI)")
-st.line_chart(cpi_df.set_index("date")["value"])
+st.line_chart(cpi_df.set_index("date")["value"]) if not cpi_df.empty else st.warning("No Inflation data available.")
 
 st.subheader("💼 Unemployment Data (Selected States)")
-st.dataframe(unemployment_df)
+st.dataframe(unemployment_df) if not unemployment_df.empty else st.warning("No unemployment data available.")
