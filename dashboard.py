@@ -45,20 +45,20 @@ else:
 def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     """Fetches state-level unemployment data from BLS API with enhanced debugging."""
     headers = {"Content-Type": "application/json"}
-    series = [f"LAU{{state_code}}0000000000003" for state_code in state_codes]
+    series = [f"LAU{state_code}0000000000003" for state_code in state_codes]
 
     data = json.dumps({
         "seriesid": series,
         "startyear": str(start_year),
         "endyear": str(end_year),
         "registrationkey": BLS_API_KEY
-    }})
+    })
     
     response = requests.post("https://api.bls.gov/publicAPI/v2/timeseries/data/", headers=headers, data=data)
 
     st.subheader("🔍 Debugging: BLS API Response")
     if response.status_code != 200:
-        st.error(f"❌ Error fetching unemployment data from BLS API. Status Code: {{response.status_code}}")
+        st.error(f"❌ Error fetching unemployment data from BLS API. Status Code: {response.status_code}")
         return pd.DataFrame()
     
     bls_data = response.json()
@@ -74,11 +74,11 @@ def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     for series in bls_data["Results"]["series"]:
         state = series["seriesID"][3:5]  # Extracting state code
         for item in series["data"]:
-            records.append({{
+            records.append({
                 "Year": int(item["year"]),
                 "State": state_code_map.get(state, state),  # Convert back to state abbreviation
                 "Unemployment Rate": float(item["value"])
-            }})
+            })
     
     df = pd.DataFrame(records)
 
@@ -98,7 +98,7 @@ st.subheader("💼 Unemployment Data (Selected States)")
 if not unemployment_df.empty:
     fig_unemployment = px.line(
         unemployment_df, x="Year", y="Unemployment Rate", color="State",
-        labels={{"Unemployment Rate": "Unemployment Rate (%)"}},
+        labels={"Unemployment Rate": "Unemployment Rate (%)"},
         title="State-wise Unemployment Rate Over Time"
     )
     st.plotly_chart(fig_unemployment, use_container_width=True)
