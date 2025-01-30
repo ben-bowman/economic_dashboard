@@ -11,11 +11,14 @@ BLS_API_KEY = st.secrets["BLS_API_KEY"]
 # --- SIDEBAR FILTERS ---
 st.sidebar.title("🔧 Dashboard Filters")
 selected_years = st.sidebar.slider("Select Year Range", 2000, 2024, (2010, 2024))
-selected_states = st.sidebar.multiselect(
+selected_state_abbrs = st.sidebar.multiselect(
     "Select States for Unemployment Data",
-    ["06", "48", "36", "12", "17"],  # CA, TX, NY, FL, IL
-    default=["06", "48"]  # Default to CA, TX
+    ['CA', 'TX', 'NY', 'FL', 'IL'],  # Display state abbreviations
+    default=["CA", "TX"]  # Default to California and Texas
 )
+
+# Convert selected state abbreviations to numeric codes for API call
+selected_state_codes = [state_abbreviation_to_code[abbr] for abbr in selected_state_abbrs]
 
 # --- FUNCTION TO FETCH GDP, INFLATION FROM FRED ---
 @st.cache_data
@@ -51,7 +54,7 @@ def fetch_fred_data(series_id, start_year=2000, end_year=2024):
 # --- FUNCTION TO FETCH UNEMPLOYMENT DATA FROM BLS ---
 @st.cache_data
 def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
-    """Fetches state-level unemployment data from BLS API."""
+    """Fetches state-level unemployment data from BLS API with enhanced debugging."""
     headers = {"Content-Type": "application/json"}
     series = [f"LAU{state_code}0000000000003" for state_code in state_codes]
 
@@ -64,37 +67,44 @@ def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     
     response = requests.post("https://api.bls.gov/publicAPI/v2/timeseries/data/", headers=headers, data=data)
 
+    st.subheader("🔍 Debugging: BLS API Response")
     if response.status_code != 200:
         st.error(f"❌ Error fetching unemployment data from BLS API. Status Code: {response.status_code}")
         return pd.DataFrame()
     
     bls_data = response.json()
+    
+    # Display raw API response for debugging
+    st.json(bls_data)
 
     if "Results" not in bls_data or "series" not in bls_data["Results"]:
         st.error("❌ Unexpected BLS API response format.")
-        st.json(bls_data)
         return pd.DataFrame()
     
     records = []
     for series in bls_data["Results"]["series"]:
-        state = series["seriesID"][3:5]
+        state = series["seriesID"][3:5]  # Extracting state code
         for item in series["data"]:
             records.append({
                 "Year": int(item["year"]),
-                "State": state,
+                "State": state_code_map.get(state, state),  # Convert back to state abbreviation
                 "Unemployment Rate": float(item["value"])
             })
     
-    return pd.DataFrame(records)
+    df = pd.DataFrame(records)
+
+    if df.empty:
+        st.warning("⚠️ No unemployment data was retrieved. Check API response above.")
+    else:
+        st.success("✅ Unemployment data retrieved successfully!")
+        st.dataframe(df)  # Show the data in Streamlit
+
+    return df
 
 # --- FETCH DATA ---
 gdp_df = fetch_fred_data("GDP", selected_years[0], selected_years[1])
 cpi_df = fetch_fred_data("CPIAUCSL", selected_years[0], selected_years[1])
-unemployment_df = fetch_bls_unemployment(selected_states, selected_years[0], selected_years[1])
-
-# Convert CPI index to percentage-based inflation rate
-if not cpi_df.empty:
-    cpi_df["value"] = ((cpi_df["value"].pct_change()) * 100).round(2)
+unemployment_df = fetch_bls_unemployment(selected_state_codes, selected_years[0], selected_years[1])
 
 # --- DISPLAY RESULTS ---
 st.title("📊 U.S. Economic Dashboard")
@@ -103,16 +113,16 @@ st.markdown("### Real-Time Economic Data from FRED & BLS")
 # KPI Metrics
 col1, col2 = st.columns(2)
 if not gdp_df.empty:
-    latest_gdp = f"${gdp_df['value'].iloc[-1]:,.2f} B"  # Assume GDP is in billions
+    latest_gdp = f"${gdp_df['value'].iloc[-1]:,.2f} B"  # GDP in billions
 else:
     latest_gdp = "N/A"
 col1.metric("📈 Latest GDP", latest_gdp)
 
 if not cpi_df.empty:
-    latest_inflation = f"{cpi_df['value'].iloc[-1]:,.2f}%"
+    latest_inflation = f"${cpi_df['value'].iloc[-1]:,.2f}"  # CPI index value as it was before
 else:
     latest_inflation = "N/A"
-col2.metric("📉 Latest Inflation Rate", latest_inflation)
+col2.metric("📉 Latest Inflation Index", latest_inflation)
 
 # --- GDP CHART ---
 st.subheader("📈 GDP Data (U.S.)")
@@ -127,12 +137,12 @@ else:
     st.warning("No GDP data available.")
 
 # --- INFLATION CHART ---
-st.subheader("📉 Inflation Rate (CPI)")
+st.subheader("📉 Inflation Index (CPI)")
 if not cpi_df.empty:
     fig_cpi = px.line(
         cpi_df, x="date", y="value",
-        labels={"value": "Inflation Rate (%)", "date": "Year"},
-        title="Inflation Rate Over Time"
+        labels={"value": "CPI Index", "date": "Year"},
+        title="Inflation Index Over Time"
     )
     st.plotly_chart(fig_cpi, use_container_width=True)
 else:
