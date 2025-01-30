@@ -1,17 +1,16 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
+import os
 import requests
-import json
+import pandas as pd
+import streamlit as st
+import plotly.express as px
+from dotenv import load_dotenv
 
-# --- CONFIG ---
-st.set_page_config(page_title="📊 U.S. Economic Dashboard", page_icon="📉", layout="wide")
+# --- LOAD API KEYS ---
+load_dotenv()  # Load from .env file
+FRED_API_KEY = os.getenv("FRED_API_KEY")
+BLS_API_KEY = os.getenv("BLS_API_KEY")
 
-# --- API KEYS (replace with your own) ---
-FRED_API_KEY = "YOUR_FRED_API_KEY"
-BLS_API_KEY = "YOUR_BLS_API_KEY"
-
-# --- FUNCTIONS TO FETCH DATA ---
+# --- FUNCTION TO FETCH GDP, INFLATION FROM FRED ---
 @st.cache_data
 def fetch_fred_data(series_id, start_year=2000, end_year=2024):
     """Fetches data from FRED API."""
@@ -25,62 +24,54 @@ def fetch_fred_data(series_id, start_year=2000, end_year=2024):
     }
     response = requests.get(url, params=params)
     data = response.json()
+    
     df = pd.DataFrame(data["observations"])
     df["date"] = pd.to_datetime(df["date"])
     df["value"] = df["value"].astype(float)
     return df
 
+# --- FUNCTION TO FETCH UNEMPLOYMENT DATA FROM BLS ---
 @st.cache_data
-def fetch_bls_unemployment():
-    """Simulated Unemployment Data (Replace with BLS API Calls)"""
-    data = {
-        "Year": list(range(2000, 2025)),
-        "Unemployment Rate": [4.0 + i * 0.1 for i in range(25)]
-    }
-    return pd.DataFrame(data)
+def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
+    """Fetches state-level unemployment data from BLS API."""
+    headers = {"Content-Type": "application/json"}
+    series = [f"LAU{state_code}0000000000003" for state_code in state_codes]
+    
+    data = json.dumps({
+        "seriesid": series,
+        "startyear": str(start_year),
+        "endyear": str(end_year),
+        "registrationkey": BLS_API_KEY
+    })
+    
+    response = requests.post("https://api.bls.gov/publicAPI/v2/timeseries/data/", headers=headers, data=data)
+    bls_data = response.json()
 
-# --- FETCH REAL DATA ---
-gdp_df = fetch_fred_data("GDP", 2000, 2024)  # U.S. GDP
+    records = []
+    for series in bls_data["Results"]["series"]:
+        state = series["seriesID"][3:5]  # Extracting state code
+        for item in series["data"]:
+            records.append({
+                "Year": int(item["year"]),
+                "State": state,
+                "Unemployment Rate": float(item["value"])
+            })
+    return pd.DataFrame(records)
+
+# --- FETCH DATA ---
+gdp_df = fetch_fred_data("GDP", 2000, 2024)  # GDP
 cpi_df = fetch_fred_data("CPIAUCSL", 2000, 2024)  # Inflation (CPI)
-unemployment_df = fetch_bls_unemployment()
+unemployment_df = fetch_bls_unemployment(["06", "48", "36", "12", "17"], 2000, 2024)
 
-# --- UI COMPONENTS ---
+# --- DISPLAY RESULTS ---
 st.title("📊 U.S. Economic Dashboard")
-st.markdown("### Explore key economic indicators over time.")
+st.markdown("### Real-Time Economic Data from FRED & BLS")
 
-# --- SIDEBAR FILTERS ---
-st.sidebar.header("Filters")
-year_range = st.sidebar.slider("Select Year Range", 2000, 2024, (2010, 2024))
-indicator = st.sidebar.selectbox("Select Indicator", ["GDP Growth", "Unemployment Rate", "Inflation Rate"])
+st.subheader("📈 GDP Data (U.S.)")
+st.line_chart(gdp_df.set_index("date")["value"])
 
-# --- DATA PROCESSING ---
-gdp_df = gdp_df[gdp_df["date"].dt.year.between(year_range[0], year_range[1])]
-cpi_df = cpi_df[cpi_df["date"].dt.year.between(year_range[0], year_range[1])]
-unemployment_df = unemployment_df[unemployment_df["Year"].between(year_range[0], year_range[1])]
+st.subheader("📉 Inflation Rate (CPI)")
+st.line_chart(cpi_df.set_index("date")["value"])
 
-# --- METRIC DISPLAY ---
-col1, col2, col3 = st.columns(3)
-col1.metric("📈 Avg GDP Growth", f"{gdp_df['value'].pct_change().mean() * 100:.2f}%")
-col2.metric("📉 Avg Unemployment", f"{unemployment_df['Unemployment Rate'].mean():.2f}%")
-col3.metric("💰 Avg Inflation", f"{cpi_df['value'].pct_change().mean() * 100:.2f}%")
-
-# --- LINE CHARTS ---
-st.markdown("### 📊 Economic Indicators Over Time")
-
-if indicator == "GDP Growth":
-    fig = px.line(gdp_df, x="date", y="value", title="U.S. GDP Over Time")
-elif indicator == "Inflation Rate":
-    fig = px.line(cpi_df, x="date", y="value", title="Inflation Rate (CPI) Over Time")
-else:
-    fig = px.line(unemployment_df, x="Year", y="Unemployment Rate", title="Unemployment Rate Over Time")
-
-st.plotly_chart(fig, use_container_width=True)
-
-# --- TABLE ---
-st.markdown("### 📊 Data Table")
-if indicator == "GDP Growth":
-    st.dataframe(gdp_df.rename(columns={"date": "Year", "value": "GDP"}))
-elif indicator == "Inflation Rate":
-    st.dataframe(cpi_df.rename(columns={"date": "Year", "value": "CPI"}))
-else:
-    st.dataframe(unemployment_df)
+st.subheader("💼 Unemployment Data (Selected States)")
+st.dataframe(unemployment_df)
