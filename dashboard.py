@@ -2,7 +2,7 @@ import requests
 import pandas as pd
 import streamlit as st
 import plotly.express as px
-import json  # ✅ Added missing import
+import json  # ✅ Fixed missing import
 
 # --- LOAD API KEYS FROM SECRETS ---
 FRED_API_KEY = st.secrets["FRED_API_KEY"]
@@ -81,11 +81,30 @@ unemployment_df = fetch_bls_unemployment(["06", "48", "36", "12", "17"], 2000, 2
 st.title("📊 U.S. Economic Dashboard")
 st.markdown("### Real-Time Economic Data from FRED & BLS")
 
+# --- GDP CHART ---
 st.subheader("📈 GDP Data (U.S.)")
-st.line_chart(gdp_df.set_index("date")["value"]) if not gdp_df.empty else st.warning("No GDP data available.")
+if not gdp_df.empty:
+    st.line_chart(gdp_df.set_index("date")["value"])
+else:
+    st.warning("No GDP data available.")
 
+# --- INFLATION CHART ---
 st.subheader("📉 Inflation Rate (CPI)")
-st.line_chart(cpi_df.set_index("date")["value"]) if not cpi_df.empty else st.warning("No Inflation data available.")
+if not cpi_df.empty:
+    st.line_chart(cpi_df.set_index("date")["value"])
+else:
+    st.warning("No Inflation data available.")
 
+# --- UNEMPLOYMENT DATA ---
 st.subheader("💼 Unemployment Data (Selected States)")
-st.dataframe(unemployment_df) if not unemployment_df.empty else st.warning("No unemployment data available.")
+if not unemployment_df.empty:
+    fig = px.line(
+        unemployment_df,
+        x="Year",
+        y="Unemployment Rate",
+        color="State",
+        title="State-wise Unemployment Rate Over Time"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning("No unemployment data available.")
