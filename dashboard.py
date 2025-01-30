@@ -45,7 +45,19 @@ else:
 def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     """Fetches state-level unemployment data from BLS API with enhanced debugging."""
     headers = {"Content-Type": "application/json"}
-    series = [f"LAU{state_code}0000000000003" for state_code in state_codes]
+    
+    # Use correct series ID for national unemployment if "All" is selected
+    if "00000" in state_codes:
+        series = ["LNS14000000"]  # Correct national unemployment series ID
+    else:
+        
+    # Use correct series ID for national unemployment if "All" is selected
+    if "00000" in state_codes:
+        series = ["LNS14000000"]  # Correct national unemployment series ID
+    else:
+        series = [f"LASST{state_code}0000000000003" for state_code in state_codes]  # Correct state-level ID format
+    
+    
 
     data = json.dumps({
         "seriesid": series,
@@ -72,11 +84,11 @@ def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     
     records = []
     for series in bls_data["Results"]["series"]:
-        state = series["seriesID"][3:5]  # Extracting state code
+        state = "US" if series["seriesID"] == "LNS14000000" else series["seriesID"][3:5]  # Extracting state code
         for item in series["data"]:
             records.append({
                 "Year": int(item["year"]),
-                "State": state_code_map.get(state, state),  # Convert back to state abbreviation
+                "State": "United States" if state == "US" else state_code_map.get(state, state),  # Convert back to state abbreviation
                 "Unemployment Rate": float(item["value"])
             })
     
