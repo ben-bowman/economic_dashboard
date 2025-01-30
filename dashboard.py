@@ -44,7 +44,7 @@ else:
 @st.cache_data
 def fetch_bls_unemployment(state_codes, start_year=2000, end_year=2024):
     """Fetches state-level unemployment data from BLS API with enhanced debugging."""
-    headers = {{"Content-Type": "application/json"}}
+    headers = {"Content-Type": "application/json"}
     series = [f"LAU{{state_code}}0000000000003" for state_code in state_codes]
 
     data = json.dumps({{
