@@ -1,2 +1,4 @@
 .env
 .streamlit/secrets.toml
+.ipynb_checkpoints
+-p
