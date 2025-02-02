@@ -22,7 +22,7 @@ def fetch_fred_data(series_id, start_year, end_year):
         "series_id": series_id,
         "api_key": FRED_API_KEY,
         "file_type": "json",
-        "observation_start": f"{start_year}-01-01",
+        "observation_start": f"{start_year-1}-01-01",
         "observation_end": f"{end_year}-12-31",
         "frequency": "a"
     }
@@ -34,10 +34,7 @@ def fetch_fred_data(series_id, start_year, end_year):
     
     df = pd.DataFrame(data["observations"])
     df["Year"] = pd.to_datetime(df["date"]).dt.year
-    df["value"] = pd.to_numeric(df["value"], errors="coerce")
-    df = df.dropna(subset=["value"])
-    df = df.groupby("Year", as_index=False)["value"].mean()
-    df.rename(columns={"value": series_id}, inplace=True)
+    df[series_id] = pd.to_numeric(df["value"], errors="coerce")
     return df
 
 # --- Function to Fetch National Unemployment Data from BLS ---
@@ -47,7 +44,7 @@ def fetch_bls_unemployment(start_year, end_year):
     series = ["LNS14000000"]
     
     all_records = []
-    for y in range(start_year, end_year+1):
+    for y in range(start_year-1, end_year+1):
         
         data = json.dumps({
             "seriesid": ['LNS14000000'],
@@ -58,6 +55,7 @@ def fetch_bls_unemployment(start_year, end_year):
         
         response = requests.post('https://api.bls.gov/publicAPI/v2/timeseries/data/', data=data, headers=headers)
         response_json = response.json()
+        print(response_json)
         unemployment_rates = [
             float(entry["value"]) for series in response_json["Results"]["series"]
             for entry in series["data"] if "value" in entry
@@ -87,33 +85,27 @@ show_unemployment = st.sidebar.checkbox("Show Unemployment", value=True)
 show_recessions = st.sidebar.checkbox("Highlight Recessions", value=True)
 
 # --- Fetch Data ---
-gdp_df = fetch_fred_data("GDP", selected_years[0], selected_years[1]) if show_gdp else pd.DataFrame()
-cpi_df = fetch_fred_data("CPIAUCSL", selected_years[0], selected_years[1]) if show_cpi else pd.DataFrame()
-unemployment_df = fetch_bls_unemployment(selected_years[0], selected_years[1]) if show_unemployment else pd.DataFrame()
+gdp_df = fetch_fred_data("GDP", 1950, 2024)
+cpi_df = fetch_fred_data("CPIAUCSL", 1950, 2024)
+unemployment_df = fetch_bls_unemployment(1950, 2024)
 
 # --- Compute GDP Growth ---
-if not gdp_df.empty:
-    gdp_df["GDP Growth (%)"] = gdp_df["GDP"].pct_change() * 100
-    gdp_df.drop(columns=["GDP"], inplace=True)
-    gdp_df.ffill()
+gdp_df["GDP Growth (%)"] = gdp_df["GDP"].pct_change() * 100
+gdp_df.fillna(0, inplace=True)
+gdp_df = gdp_df[["Year", "GDP Growth (%)"]]
 
 # --- Compute Inflation Rate ---
-if not cpi_df.empty:
-    cpi_df["Inflation Rate (%)"] = cpi_df["CPIAUCSL"].pct_change() * 100
-    cpi_df.drop(columns=["CPIAUCSL"], inplace=True)
-    cpi_df.ffill()
+cpi_df["Inflation Rate (%)"] = cpi_df["CPIAUCSL"].pct_change() * 100
+cpi_df.fillna(0, inplace=True)
+cpi_df = cpi_df[["Year", "Inflation Rate (%)"]]
 
 # --- Merge Data ---
 merged_df = pd.DataFrame({"Year": range(selected_years[0], selected_years[1] + 1)})
 for df in [gdp_df, cpi_df, unemployment_df]:
     if not df.empty:
-        merged_df = pd.merge(merged_df, df, on="Year", how="left")
+        merged_df = pd.merge(merged_df, df, on="Year", how="inner")
 
-merged_df.ffill()
 # --- Display Chart ---
-import plotly.express as px
-import streamlit as st
-
 # Ensure merged_df is not empty
 if not merged_df.empty:
     # Melt the dataframe to get a long-form structure for Plotly
