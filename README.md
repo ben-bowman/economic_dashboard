@@ -1,53 +1,52 @@
 # 📊 U.S. Economic Dashboard
 
-This Streamlit app visualizes key U.S. economic indicators such as **GDP Growth, Unemployment Rate, and Inflation Rate** using real-time data from **FRED (Federal Reserve Economic Data) and BLS (Bureau of Labor Statistics).**
+[![Streamlit Cloud](https://img.shields.io/badge/Live%20Demo-Streamlit-brightgreen)](https://bens-econ-dash.streamlit.app/)
+
+This **Streamlit-powered dashboard** provides **real-time U.S. economic insights** by fetching and visualizing **GDP Growth, Unemployment Rate, and Inflation Rate** using data from:
+- 📊 **FRED (Federal Reserve Economic Data)**
+- 📈 **BLS (Bureau of Labor Statistics)**
 
 ## 🚀 Features
-- 📈 Interactive **GDP, Unemployment, and Inflation Trends**
-- 📊 State-wise Unemployment Comparison
-- 🔎 Filter by **Year & Economic Indicator**
-- 🎨 Beautiful **Plotly Interactive Charts**
-- 🌐 **Deployed on Streamlit Cloud**
+- **📈 Interactive Economic Indicators** – View **GDP Growth, Unemployment, and Inflation Trends** dynamically.
+- **🔍 Customizable Filters** – Adjust the **year range and indicators** using an interactive sidebar.
+- **🛠 Robust API Handling** – Handles **FRED & BLS API rate limits** with error detection and safe exits.
+- **📉 Recession Shading** – Highlights **U.S. recessions** using historical data.
+- **💾 Download Data** – Export the data table as a **CSV file**.
+- **🎨 Beautiful Plotly Interactive Charts** – Hover, zoom, and explore the data visually.
+- **☁️ Hosted on Streamlit Cloud** – Always available, no local setup required!
+
+## 🌐 **Live App**
+🔗 **[Visit the U.S. Economic Dashboard](https://bens-econ-dash.streamlit.app/)**
+
+---
+
+## 🛠 **How It Works**
+### **1️⃣ Fetching Data from Two APIs**
+The dashboard **retrieves real-time economic data** from two major government APIs:
+- **FRED API** (Federal Reserve): Fetches **GDP Growth** and **Inflation Rate**.
+- **BLS API** (Bureau of Labor Statistics): Fetches the **Unemployment Rate**.
+
+### **2️⃣ Handling API Limitations**
+- **Pagination & Data Handling** – The dashboard **automatically processes** multiple API requests efficiently.
+- **Error Handling for Rate Limits** – If the **daily request limit is reached**, the dashboard **displays an error and stops** instead of breaking.
+
+### **3️⃣ Sidebar Controls**
+You can **customize your view** using the sidebar:
+- 📆 **Year Range Selector** – Adjust the timeline for economic data.
+- ✅ **Toggle Indicators** – Show or hide **GDP Growth, Inflation, and Unemployment** dynamically.
+- 📉 **Highlight Recessions** – Toggle shading for historical **U.S. recession periods**.
+
+### **4️⃣ Downloadable Data**
+Want to analyze the data yourself?  
+- Click the **Download CSV** button to **export the dataset**.
 
 ---
 
 ## 🛠 Deployment on Streamlit Cloud
-To deploy this project on **Streamlit Community Cloud**:
+To deploy this project yourself:
 
-### 1️⃣ Push to GitHub
+### 1️⃣ Clone the Repo & Install Dependencies
 ```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git
-git push -u origin main
-```
-
-### 2️⃣ Set Up Streamlit Secrets
-- Go to **Streamlit Cloud** → Select **"Manage App"**.
-- Click **"Secrets"** and **add your API keys manually**:
-  ```
-  FRED_API_KEY = "YOUR_FRED_API_KEY"
-  BLS_API_KEY = "YOUR_BLS_API_KEY"
-  ```
-- Save the secrets.
-
-### 3️⃣ Deploy the App
-- Go to [Streamlit Cloud](https://share.streamlit.io/) and connect your GitHub repo.
-- Select `dashboard.py` as the main script.
-- Click **Deploy** 🚀
-
-Your app will be live at:
-```
-https://your-app-name.streamlit.app
-```
-
----
-
-## 📝 License
-This project is **MIT Licensed** – free to use, modify, and share.
-
----
-
-🎉 **Happy coding!** Let me know if you need help!
+git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME.git
+cd YOUR_REPO_NAME
+pip install -r requirements.txt
