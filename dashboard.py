@@ -55,7 +55,7 @@ def fetch_bls_unemployment(start_year, end_year):
         
         response = requests.post('https://api.bls.gov/publicAPI/v2/timeseries/data/', data=data, headers=headers)
         response_json = response.json()
-        print(response_json)
+        
         unemployment_rates = [
             float(entry["value"]) for series in response_json["Results"]["series"]
             for entry in series["data"] if "value" in entry
@@ -105,11 +105,33 @@ for df in [gdp_df, cpi_df, unemployment_df]:
     if not df.empty:
         merged_df = pd.merge(merged_df, df, on="Year", how="inner")
 
+# --- Manually Define Recession Periods ---
+recession_data = [
+    (1953, 1954), (1957, 1958), (1960, 1961), (1969, 1970),
+    (1973, 1975), (1980, 1982), (1990, 1991), (2001, 2002),
+    (2007, 2009), (2020, 2020)
+]
+
+recession_df = pd.DataFrame(recession_data, columns=["Recession Start", "Recession End"])
+
 # --- Display Chart ---
 # Ensure merged_df is not empty
 if not merged_df.empty:
+    # --- Dynamically Filter Merged Data Based on Checkbox Selections ---
+    columns_to_keep = ["Year"]  # Always keep "Year"
+
+    if show_gdp:
+        columns_to_keep.append("GDP Growth (%)")
+    if show_cpi:
+        columns_to_keep.append("Inflation Rate (%)")
+    if show_unemployment:
+        columns_to_keep.append("Unemployment Rate")
+
+    # Keep only selected columns in merged_df
+    filtered_df = merged_df[columns_to_keep]
+
     # Melt the dataframe to get a long-form structure for Plotly
-    df_melted = merged_df.melt(id_vars=["Year"], 
+    df_melted = filtered_df.melt(id_vars=["Year"], 
                                 var_name="Indicator", 
                                 value_name="Value")
     
@@ -123,6 +145,21 @@ if not merged_df.empty:
         title="U.S. Economic Trends",
         labels={"Value": "Percentage (%)", "Year": "Year", "Indicator": "Economic Indicator"}
     )
+    
+    # --- Filter Recession Periods Dynamically ---
+    recession_df_filtered = recession_df[
+        (recession_df["Recession Start"] >= selected_years[0]) & 
+        (recession_df["Recession End"] <= selected_years[1])
+    ]
+
+        # --- Add Shaded Recession Periods ---
+    if show_recessions:
+        for _, row in recession_df_filtered.iterrows():
+            fig.add_vrect(
+                x0=row["Recession Start"], x1=row["Recession End"],
+                fillcolor="gray", opacity=0.3, layer="below",
+                line_width=0
+            )
     
     # Display chart in Streamlit
     st.subheader("\U0001F4C8 Economic Trends Over Time")
