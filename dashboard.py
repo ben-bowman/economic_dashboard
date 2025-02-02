@@ -4,11 +4,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
-from dotenv import load_dotenv
 import json
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Get API keys from environment variables
 FRED_API_KEY = os.getenv("FRED_API_KEY")
