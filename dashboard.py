@@ -29,6 +29,13 @@ def fetch_fred_data(series_id, start_year, end_year):
     response = requests.get(url, params=params)
     data = response.json()
     
+    # 🚨 If the API request limit is reached, raise an exception
+    if data.get("status") == "REQUEST_NOT_PROCESSED":
+        raise RuntimeError("Sorry. API Daily Limit Reached. Please try again tomorrow.")
+
+    if "observations" not in data:
+        return pd.DataFrame()
+    
     if "observations" not in data:
         return pd.DataFrame()
     
@@ -56,6 +63,15 @@ def fetch_bls_unemployment(start_year, end_year):
         response = requests.post('https://api.bls.gov/publicAPI/v2/timeseries/data/', data=data, headers=headers)
         response_json = response.json()
         
+        # 🚨 Detect API request limit error
+        if response_json.get("status") == "REQUEST_NOT_PROCESSED":
+            error_message = response_json.get("message", ["Unknown error"])[0]
+            raise RuntimeError(f"Sorry. API Daily Limit Reached. Please try again tomorrow.")
+
+        # 🚨 Ensure "series" exists in response before processing
+        if "Results" not in response_json or "series" not in response_json["Results"]:
+            raise RuntimeError("Unexpected API response format from BLS.")
+            
         unemployment_rates = [
             float(entry["value"]) for series in response_json["Results"]["series"]
             for entry in series["data"] if "value" in entry
@@ -85,9 +101,13 @@ show_unemployment = st.sidebar.checkbox("Show Unemployment", value=True)
 show_recessions = st.sidebar.checkbox("Highlight Recessions", value=True)
 
 # --- Fetch Data ---
-gdp_df = fetch_fred_data("GDP", 1950, 2024)
-cpi_df = fetch_fred_data("CPIAUCSL", 1950, 2024)
-unemployment_df = fetch_bls_unemployment(1950, 2024)
+try:
+    gdp_df = fetch_fred_data("GDP", 1950, 2024)
+    cpi_df = fetch_fred_data("CPIAUCSL", 1950, 2024)
+    unemployment_df = fetch_bls_unemployment(1950, 2024)
+except RuntimeError as e:
+    st.error(str(e))  # Display the API limit error message
+    st.stop()  # Stop execution of the entire dashboard
 
 # --- Compute GDP Growth ---
 gdp_df["GDP Growth (%)"] = gdp_df["GDP"].pct_change() * 100
